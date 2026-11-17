@@ -114,7 +114,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux, macos, windows]
+        build: [linux, macos, windows, windows-arm64]
         include:
           - build: linux
             os: ubuntu-24.04
@@ -122,6 +122,9 @@ jobs:
           - build: windows
             os: windows-latest
             rust: stable-x86_64-msvc
+          - build: windows-arm64
+            os: windows-11-arm
+            rust: stable
           - build: macos
             os: macos-latest
             rust: stable
@@ -348,7 +351,7 @@ jobs:
           xcrun stapler staple "$DMG_PATH"
 
       - name: Build for Windows
-        if: matrix.os == 'windows-latest'
+        if: startsWith(matrix.os, 'windows')
         timeout-minutes: 20
         env:
           INPUT_URL: ${{ inputs.url }}
@@ -381,7 +384,8 @@ jobs:
           $args += "--width", $env:INPUT_WIDTH
           $args += "--height", $env:INPUT_HEIGHT
 
-          $args += "--targets", "x64"
+          $arch = if ("${{ matrix.build }}" -eq "windows-arm64") { "arm64" } else { "x64" }
+          $args += "--targets", $arch
 
           node dist/cli.js $args
 
@@ -393,12 +397,13 @@ jobs:
           $legacyProjectRootMsi = "$($env:INPUT_NAME).msi"
 
           if (Test-Path $projectRootMsi) {
-            Move-Item -Path $projectRootMsi -Destination "output\windows\$($env:INPUT_TITLE)_x64.msi"
+            Move-Item -Path $projectRootMsi -Destination "output\windows\$($env:INPUT_TITLE)_$arch.msi"
           } elseif (Test-Path $legacyProjectRootMsi) {
-            Move-Item -Path $legacyProjectRootMsi -Destination "output\windows\$($env:INPUT_TITLE)_x64.msi"
+            Move-Item -Path $legacyProjectRootMsi -Destination "output\windows\$($env:INPUT_TITLE)_$arch.msi"
           } else {
             # Check architecture-specific path (x64 builds)
-            $msiFiles = Get-ChildItem -Path "src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\*.msi" -ErrorAction SilentlyContinue
+            $triple = if ($arch -eq "arm64") { "aarch64-pc-windows-msvc" } else { "x86_64-pc-windows-msvc" }
+            $msiFiles = Get-ChildItem -Path "src-tauri\target\$triple\release\bundle\msi\*.msi" -ErrorAction SilentlyContinue
 
             # Fallback to generic path
             if (-not $msiFiles) {
@@ -406,13 +411,13 @@ jobs:
             }
 
             if ($msiFiles) {
-              Move-Item -Path $msiFiles[0].FullName -Destination "output\windows\$($env:INPUT_TITLE)_x64.msi"
+              Move-Item -Path $msiFiles[0].FullName -Destination "output\windows\$($env:INPUT_TITLE)_$arch.msi"
             } else {
               Write-Error "No MSI files found in expected locations"
               Write-Host "Searched paths:"
               Write-Host "  - $projectRootMsi (project root)"
               Write-Host "  - $legacyProjectRootMsi (project root)"
-              Write-Host "  - src-tauri\target\x86_64-pc-windows-msvc\release\bundle\msi\"
+              Write-Host "  - src-tauri\target\$triple\release\bundle\msi\"
               Write-Host "  - src-tauri\target\release\bundle\msi\"
               Write-Host "`nAll MSI files in target directory:"
               Get-ChildItem -Path "src-tauri\target\" -Recurse -Name "*.msi" | Write-Host
@@ -451,7 +456,7 @@ jobs:
 
       - name: Upload to release (Windows)
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
-        if: matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+        if: startsWith(matrix.os, 'windows') && startsWith(github.ref, 'refs/tags/')
         with:
           allowUpdates: true
           omitBody: true

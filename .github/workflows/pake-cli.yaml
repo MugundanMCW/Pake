@@ -14,6 +14,7 @@ on:
         type: choice
         options:
           - "windows-latest"
+          - "windows-11-arm"
           - "macos-latest"
           - "ubuntu-24.04"
       url:
@@ -225,8 +226,21 @@ jobs:
             $args += "--new-window"
           }
 
+          # Native Windows ARM64 runner builds the aarch64-pc-windows-msvc target;
+          # x64 runners keep the CLI's default target selection.
+          $isArm64 = $env:RUNNER_ARCH -eq "ARM64"
+          if ($isArm64) {
+            $args += "--targets", "arm64"
+          }
+
           Write-Host "Running: node dist/cli.js $($args -join ' ')"
           node dist/cli.js $args
+
+          # Give the ARM64 MSI an architecture-specific name so it can never
+          # collide with (or overwrite) the x64 artifact.
+          if ($isArm64) {
+            Move-Item -Path "$($env:INPUT_NAME).msi" -Destination "$($env:INPUT_NAME)_arm64.msi" -Force
+          }
 
           git checkout -- src-tauri/Cargo.lock
 
@@ -279,6 +293,6 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.name }}-Windows
-          path: ${{ inputs.name }}.msi
+          name: ${{ inputs.name }}-Windows${{ runner.arch == 'ARM64' && '-arm64' || '' }}
+          path: ${{ inputs.name }}${{ runner.arch == 'ARM64' && '_arm64' || '' }}.msi
           retention-days: 3
