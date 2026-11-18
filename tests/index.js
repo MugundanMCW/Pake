@@ -785,7 +785,7 @@ class PakeTestRunner {
               "--hide-title-bar",
               ...(multiArch ? ["--multi-arch"] : []),
               "--targets",
-              process.platform === "win32" ? "x64" : extension,
+              process.platform === "win32"? (process.arch === "arm64" ? "arm64" : "x64"): extension,
               "--json",
               "--icon",
               path.join(config.PROJECT_ROOT, "src-tauri/icons/icon.png"),
