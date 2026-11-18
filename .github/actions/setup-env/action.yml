@@ -136,11 +136,12 @@ runs:
       run: |
         try {
           # Download and install WIX Toolset v3.11
-          Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311.exe" -OutFile "wix311.exe"
-          Start-Process -FilePath "wix311.exe" -ArgumentList "/quiet" -Wait
+          Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix311rtm/wix311-binaries.zip" -OutFile "wix311.zip"
+          Expand-Archive -Path "wix311.zip" -DestinationPath "C:\wix311" -Force
+          Add-Content -Path $env:GITHUB_PATH -Value "C:\wix311"
           Write-Host "✅ WIX Toolset installed successfully"
         } catch {
-          Write-Error "Failed to install WIX Toolset: $($_.Exception.Message)"
+          Write-Error "Failed to setup WiX Toolset: $($_.Exception.Message)"
           exit 1
         }
 
